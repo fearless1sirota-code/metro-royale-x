@@ -3,114 +3,151 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>METRO ROYALE: STALKER</title>
+<title>METRO ROYALE 3D: STALKER</title>
 <style>
     *{box-sizing:border-box;touch-action:none;user-select:none}
-    body{margin:0;background:#0a0f0b;color:#c4d1c5;font-family:'Courier New',monospace;overflow:hidden;height:100vh}
-    #hud{position:absolute;top:0;left:0;width:100%;height:40px;background:rgba(15,25,18,0.8);display:flex;justify-content:space-between;align-items:center;padding:0 10px;font-size:12px;z-index:10;border-bottom:1px solid #2a3a2e}
-    #event{position:absolute;top:40px;width:100%;height:25px;background:rgba(40,30,20,0.9);color:#ffb347;text-align:center;font-size:11px;line-height:25px;z-index:10}
+    body{margin:0;background:#000;overflow:hidden;height:100vh;color:#fff;font-family:'Courier New',monospace}
+    #hud{position:absolute;top:0;left:0;width:100%;height:40px;background:rgba(10,15,10,0.8);display:flex;justify-content:space-between;align-items:center;padding:0 10px;font-size:14px;z-index:10;border-bottom:1px solid #333}
+    #event{position:absolute;top:40px;width:100%;height:25px;background:rgba(40,30,20,0.9);color:#ffb347;text-align:center;font-size:12px;line-height:25px;z-index:10}
     canvas{display:block;width:100%;height:100%}
-    #joy-left{position:absolute;bottom:20px;left:20px;width:120px;height:120px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);border-radius:50%;z-index:20}
-    #joy-left-stick{position:absolute;top:35px;left:35px;width:50px;height:50px;background:rgba(255,255,255,0.2);border-radius:50%;pointer-events:none}
-    #joy-right{position:absolute;bottom:20px;right:20px;width:120px;height:120px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);border-radius:50%;z-index:20}
-    #joy-right-stick{position:absolute;top:35px;left:35px;width:50px;height:50px;background:rgba(255,0,0,0.3);border-radius:50%;pointer-events:none}
-    #crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;border:1px solid rgba(255,255,255,0.5);border-radius:50%;z-index:5;pointer-events:none}
-    #crosshair::after{content:'';position:absolute;top:9px;left:9px;width:2px;height:2px;background:red;border-radius:50%}
+    #joy-left{position:absolute;bottom:20px;left:20px;width:120px;height:120px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.3);border-radius:50%;z-index:20}
+    #joy-left-stick{position:absolute;top:35px;left:35px;width:50px;height:50px;background:rgba(255,255,255,0.3);border-radius:50%;pointer-events:none}
+    #btn-fire{position:absolute;bottom:40px;right:40px;width:80px;height:80px;background:rgba(200,50,50,0.6);border:2px solid #f55;border-radius:50%;color:#fff;font-weight:bold;z-index:20;display:flex;align-items:center;justify-content:center}
+    #crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:2px;height:2px;background:red;z-index:5}
 </style>
 </head>
 <body>
-<div id="hud"><span>❤️ <b id="hp">100</b></span><span>🛡️ <b id="armor">100</b></span><span>💰 <b id="cash">0</b></span><span>🔫 <b id="ammo">30</b></span></div>
-<div id="event">ЗАГРУЗКА...</div>
+<div id="hud"><span>❤️ <b id="hp">100</b></span><span>💰 <b id="cash">0</b></span><span>🔫 <b id="ammo">30</b></span></div>
+<div id="event">ЗАГРУЗКА СЕКТОРА...</div>
 <canvas id="game"></canvas>
 <div id="crosshair"></div>
 <div id="joy-left"><div id="joy-left-stick"></div></div>
-<div id="joy-right"><div id="joy-right-stick"></div></div>
+<button id="btn-fire">ОГОНЬ</button>
 <script>
 const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
 let W,H;
 function resize(){W=canvas.clientWidth;H=canvas.clientHeight;canvas.width=W*devicePixelRatio;canvas.height=H*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);}
 window.addEventListener("resize",resize);resize();
-const player={x:0,y:0,angle:0,hp:100,armor:100,cash:0,ammo:30,maxAmmo:30,speed:220};
-let enemies=[],bullets=[],loot=[],walls=[],particles=[];
-let keys={w:false,a:false,s:false,d:false},mouse={isDown:false},gameOver=false;
-for(let i=0;i<40;i++){walls.push({x:Math.random()*3000-1500,y:Math.random()*3000-1500,w:60+Math.random()*100,h:60+Math.random()*100});}
-const rarities=[{color:"#b0c4de",name:"Common"},{color:"#4169e1",name:"Rare"},{color:"#9400d3",name:"Epic"},{color:"#ffd700",name:"Legend"}];
-for(let i=0;i<20;i++){let r=rarities[Math.floor(Math.random()*rarities.length)];loot.push({x:Math.random()*2000-1000,y:Math.random()*2000-1000,color:r.color,name:r.name});}
-function setupJoystick(containerId,stickId,isRight){
-    const container=document.getElementById(containerId),stick=document.getElementById(stickId);let active=false;
-    container.addEventListener("pointerdown",(e)=>{e.preventDefault();active=true;updateStick(e);});
-    document.addEventListener("pointermove",(e)=>{if(active)updateStick(e);});
-    document.addEventListener("pointerup",()=>{active=false;stick.style.transform="translate(0px,0px)";if(isRight)mouse.isDown=false;});
-    function updateStick(e){
-        const rect=container.getBoundingClientRect(),cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
 
-let dx=e.clientX-cx,dy=e.clientY-cy;const maxDist=35,dist=Math.hypot(dx,dy);
-        if(dist>maxDist){dx=(dx/dist)*maxDist;dy=(dy/dist)*maxDist;}
-        stick.style.transform=translate(${dx}px,${dy}px);
-        if(isRight){player.angle=Math.atan2(dy,dx);mouse.isDown=dist>15;}
-        else{keys.w=dy<-15;keys.s=dy>15;keys.a=dx<-15;keys.d=dx>15;}
+const MAP_SIZE=16;
+const map=[
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,0,0,0,0,0,0,1,0,0,1,0,0,1],
+    [1,0,1,0,0,0,0,0,0,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1],
+    [1,0,0,1,1,0,0,0,0,0,1,0,0,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,1,0,0,1,0,1],
+    [1,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1],
+    [1,0,1,0,0,1,0,0,0,0,0,0,0,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+    [1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+let player={x:2.5,y:2.5,dir:0,hp:100,ammo:30,cash:0,speed:2.5};
+let keys={w:false,s:false};
+let touchStartX=0,touchStartY=0;
+
+// Управление
+const joyLeft=document.getElementById("joy-left"),stick=document.getElementById("joy-left-stick");
+let joyActive=false;
+joyLeft.addEventListener("pointerdown",(e)=>{e.preventDefault();joyActive=true;updateJoy(e);});
+document.addEventListener("pointermove",(e)=>{
+    if(joyActive)updateJoy(e);
+    else if(e.clientX>window.innerWidth/2 && Math.abs(e.clientX-touchStartX)>2){
+        // Свайп для поворота
+        player.dir += (e.clientX-touchStartX)*0.005;
+        touchStartX=e.clientX;
+    }
+});
+document.addEventListener("pointerup",()=>{joyActive=false;stick.style.transform="translate(0,0)";});
+document.addEventListener("pointerdown",(e)=>{if(e.clientX>window.innerWidth/2)touchStartX=e.clientX;});
+function updateJoy(e){
+    const rect=joyLeft.getBoundingClientRect(),cx=rect.left+60,cy=rect.top+60;
+
+let dx=e.clientX-cx,dy=e.clientY-cy;
+    const max=35,dist=Math.hypot(dx,dy);
+    if(dist>max){dx=(dx/dist)*max;dy=(dy/dist)*max;}
+    stick.style.transform=translate(${dx}px,${dy}px);
+    keys.w=dy<-10; keys.s=dy>10;
+    // Сдвиг вбок
+    player.dir -= dx*0.005;
+}
+document.getElementById("btn-fire").addEventListener("pointerdown",(e)=>{e.preventDefault();player.ammo--;document.getElementById("ammo").textContent=player.ammo;});
+
+// Raycasting 3D
+function castRays(){
+    ctx.fillStyle="#000";ctx.fillRect(0,0,W,H);
+    const fov=Math.PI/3;
+    const numRays=W;
+    const maxDepth=15;
+
+    for(let i=0;i<numRays;i++){
+        let rayAngle=player.dir-fov/2+(i/W)*fov;
+        let rayX=Math.cos(rayAngle),rayY=Math.sin(rayAngle);
+        let dist=0,hit=false,side=0;
+        
+        while(!hit && dist<maxDepth){
+            dist+=0.05;
+            let testX=player.x+rayX*dist,testY=player.y+rayY*dist;
+            let mapX=Math.floor(testX),mapY=Math.floor(testY);
+            
+            if(mapX<0mapX>=MAP_SIZEmapY<0||mapY>=MAP_SIZE){hit=true;dist=maxDepth;}
+            else if(map[mapY][mapX]>0){hit=true;}
+        }
+        
+        // Убираем рыбоглазость
+        let correctedDist=dist*Math.cos(rayAngle-player.dir);
+        let wallHeight=(H/2)/correctedDist;
+        
+        // Текстура (цвет в зависимости от клетки)
+        let mapX=Math.floor(player.x+rayX*dist),mapY=Math.floor(player.y+rayY*dist);
+        let color=map[mapY] && map[mapY][mapX]===1 ? (mapY%2===0?"#4a4f45":"#3a3f35") : "#2a2e26";
+        
+        // Затемнение по дистанции
+        let shade=Math.max(0.1,1-correctedDist/maxDepth);
+        ctx.fillStyle=color;
+        ctx.globalAlpha=shade;
+        ctx.fillRect(i,(H-wallHeight)/2,1,wallHeight);
+        ctx.globalAlpha=1;
     }
 }
-setupJoystick("joy-left","joy-left-stick",false);setupJoystick("joy-right","joy-right-stick",true);
-function shoot(){
-    if(gameOver||player.ammo<=0)return;player.ammo--;document.getElementById("ammo").textContent=player.ammo;
-    particles.push({x:player.x+Math.cos(player.angle)*20,y:player.y+Math.sin(player.angle)*20,vx:Math.cos(player.angle)*10,vy:Math.sin(player.angle)*10,life:5});
-    bullets.push({x:player.x+Math.cos(player.angle)*25,y:player.y+Math.sin(player.angle)*25,vx:Math.cos(player.angle)*1200,vy:Math.sin(player.angle)*1200,life:1.0});
-}
-function spawnEnemy(){
-    let a=Math.random()*Math.PI*2,d=500+Math.random()*300;
-    enemies.push({x:player.x+Math.cos(a)*d,y:player.y+Math.sin(a)*d,hp:100,speed:80+Math.random()*40});
-}
-for(let i=0;i<5;i++)spawnEnemy();
+
+// Главный цикл
 let lastTime=performance.now();
 function loop(time){
     const dt=Math.min((time-lastTime)/1000,0.05);lastTime=time;
-    if(!gameOver){
-        let mx=0,my=0;
-        if(keys.w)my-=1;if(keys.s)my+=1;if(keys.a)mx-=1;if(keys.d)mx+=1;
-        if(mx!==0||my!==0){let len=Math.hypot(mx,my);player.x+=(mx/len)*player.speed*dt;player.y+=(my/len)*player.speed*dt;}
-        if(mouse.isDown)shoot();
-        enemies.forEach(e=>{
-            let dx=player.x-e.x,dy=player.y-e.y,dist=Math.hypot(dx,dy);
-            if(dist>30){e.x+=(dx/dist)*e.speed*dt;e.y+=(dy/dist)*e.speed*dt;}
-            else{player.hp-=15*dt;if(player.hp<=0){player.hp=0;gameOver=true;document.getElementById("event").textContent="ВЫ МЕРТВЫ.";}}
-        });
-        bullets.forEach((b,i)=>{
-            b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.life<=0){bullets.splice(i,1);return;}
-            let hit=enemies.findIndex(e=>Math.hypot(e.x-b.x,e.y-b.y)<20);
-            if(hit!==-1){enemies[hit].hp-=40;bullets.splice(i,1);if(enemies[hit].hp<=0){enemies.splice(hit,1);player.cash+=50;player.hp=Math.min(100,player.hp+10);document.getElementById("hp").textContent=Math.floor(player.hp);document.getElementById("cash").textContent=player.cash;spawnEnemy();}}
-        });
-        loot.forEach((l,i)=>{
-            if(Math.hypot(player.x-l.x,player.y-l.y)<30){
-                player.cash+=200;player.ammo=player.maxAmmo;
-                document.getElementById("cash").textContent=player.cash;document.getElementById("ammo").textContent=player.ammo;
-                document.getElementById("event").textContent="СКИН: "+l.name.toUpperCase()+" (+200$)";loot.splice(i,1);
-                setTimeout(()=>{let r=rarities[Math.floor(Math.random()*rarities.length)];loot.push({x:Math.random()*2000-1000,y:Math.random()*2000-1000,color:r.color,name:r.name});},5000);
+    
+    // Движение
+    if(keys.w){player.x+=Math.cos(player.dir)*player.speed*dt;player.y+=Math.sin(player.dir)*player.speed*dt;}
+    if(keys.s){player.x-=Math.cos(player.dir)*player.speed*dt;player.y-=Math.sin(player.dir)*player.speed*dt;}
+    
+    // Проверка коллизий
+    let nextX=player.x+Math.cos(player.dir)*0.1,nextY=player.y+Math.sin(player.dir)*0.1;
+    if(map[Math.floor(player.y)][Math.floor(nextX)]===0)player.x+=Math.cos(player.dir)*player.speed*dt;
+    if(map[Math.floor(nextY)][Math.floor(player.x)]===0)player.y+=Math.sin(player.dir)*player.speed*dt;
+    
+    castRays();
+    
+    // Мини-карта (в углу)
+    ctx.fillStyle="rgba(0,0,0,0.5)";ctx.fillRect(W-100,40,100,100);
+    ctx.fillStyle="red";ctx.fillRect(W-100+player.x*6,40+player.y*6,4,4);
+    for(let y=0;y<MAP_SIZE;y++){
+        for(let x=0;x<MAP_SIZE;x++){
+            if(map[y][x]===1){
+                ctx.fillStyle="#555";ctx.fillRect(W-100+x*6,40+y*6,6,6);
             }
-        });
-        document.getElementById("hp").textContent=Math.floor(player.hp);
-        document.getElementById("armor").textContent=Math.floor(player.armor);
+        }
     }
-    ctx.fillStyle="#2b3027";ctx.fillRect(0,0,W,H);
-    let camX=player.x-W/2,camY=player.y-H/2;ctx.save();ctx.translate(-camX,-camY);
-    ctx.strokeStyle="#20241c";ctx.lineWidth=1;
-    let startX=Math.floor(camX/60)*60,startY=Math.floor(camY/60)*60;
-    for(let x=startX;x<camX+W+60;x+=60){ctx.beginPath();ctx.moveTo(x,camY);ctx.lineTo(x,camY+H);ctx.stroke();}
-    for(let y=startY;y<camY+H+60;y+=60){ctx.beginPath();ctx.moveTo(camX,y);ctx.lineTo(camX+W,y);ctx.stroke();}
-    walls.forEach(w=>{ctx.fillStyle="#1a1c18";ctx.fillRect(w.x+5,w.y+5,w.w,w.h);ctx.fillStyle="#4a4f45";ctx.fillRect(w.x,w.y,w.w,w.h);ctx.strokeStyle="#2a2e26";ctx.strokeRect(w.x,w.y,w.w,w.h);});
-
-loot.forEach(l=>{ctx.fillStyle=l.color;ctx.beginPath();ctx.arc(l.x,l.y,10,0,Math.PI*2);ctx.fill();ctx.fillStyle=l.color+"44";ctx.beginPath();ctx.arc(l.x,l.y,20,0,Math.PI*2);ctx.fill();});
-    enemies.forEach(e=>{ctx.fillStyle="#5c2222";ctx.beginPath();ctx.ellipse(e.x,e.y+5,15,10,0,0,Math.PI*2);ctx.fill();ctx.fillStyle="#8a2e2e";ctx.beginPath();ctx.arc(e.x,e.y,14,0,Math.PI*2);ctx.fill();ctx.fillStyle="#000";ctx.beginPath();ctx.arc(e.x-4,e.y-2,2,0,Math.PI*2);ctx.arc(e.x+4,e.y-2,2,0,Math.PI*2);ctx.fill();});
-    bullets.forEach(b=>{ctx.fillStyle="#ffb347";ctx.beginPath();ctx.arc(b.x,b.y,3,0,Math.PI*2);ctx.fill();});
-    particles.forEach((p,i)=>{p.x+=p.vx;p.y+=p.vy;p.life--;ctx.fillStyle=rgba(255,200,0,${p.life/5});ctx.fillRect(p.x,p.y,3,3);if(p.life<=0)particles.splice(i,1);});
-    ctx.save();ctx.translate(player.x,player.y);ctx.rotate(player.angle);
-    ctx.fillStyle="#1a1c18";ctx.beginPath();ctx.ellipse(0,5,18,12,0,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle="#3d4f35";ctx.beginPath();ctx.arc(0,0,16,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle="#2a3a24";ctx.fillRect(-5,-15,10,30);ctx.fillStyle="#222";ctx.fillRect(10,-3,20,6);ctx.restore();
-    ctx.restore();
+    
     requestAnimationFrame(loop);
 }
-document.getElementById("event").textContent="ВЫЖИВИ И СОБИРАЙ СКИНЫ";
+document.getElementById("event").textContent="ВЫЖИВИ И ИССЛЕДУЙ";
 requestAnimationFrame(loop);
 </script>
 </body>
