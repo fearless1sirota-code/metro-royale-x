@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>METRO ROYALE 3D: STALKER</title>
+<title>METRO ROYALE 3D</title>
 <style>
     *{box-sizing:border-box;touch-action:none;user-select:none}
     body{margin:0;background:#000;overflow:hidden;height:100vh;color:#fff;font-family:'Courier New',monospace}
@@ -13,12 +13,12 @@
     #joy-left{position:absolute;bottom:20px;left:20px;width:120px;height:120px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);border-radius:50%;z-index:20}
     #joy-left-stick{position:absolute;top:35px;left:35px;width:50px;height:50px;background:rgba(255,255,255,0.2);border-radius:50%;pointer-events:none}
     #btn-fire{position:absolute;bottom:40px;right:40px;width:80px;height:80px;background:rgba(200,50,50,0.6);border:2px solid #f55;border-radius:50%;color:#fff;font-weight:bold;z-index:20;display:flex;align-items:center;justify-content:center}
-    #crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:2px;height:2px;background:red;z-index:5}
+    #crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;background:red;border-radius:50%;z-index:5}
 </style>
 </head>
 <body>
 <div id="hud"><span>❤️ <b id="hp">100</b></span><span>💰 <b id="cash">0</b></span><span>🔫 <b id="ammo">30</b></span></div>
-<div id="event">ИНИЦИАЛИЗАЦИЯ...</div>
+<div id="event">ЗАГРУЗКА...</div>
 <canvas id="game"></canvas>
 <div id="crosshair"></div>
 <div id="joy-left"><div id="joy-left-stick"></div></div>
@@ -51,11 +51,9 @@ const map=[
 
 let player={x:2.5,y:2.5,dir:0,hp:100,ammo:30,cash:0,speed:2.5};
 let keys={w:false,s:false};
-let touchStartX=0,touchStartY=0;
+let touchStartX=0;
 let weaponAnim=0;
-let isFiring=false;
 
-// Управление
 const joyLeft=document.getElementById("joy-left"),stick=document.getElementById("joy-left-stick");
 let joyActive=false;
 joyLeft.addEventListener("pointerdown",(e)=>{e.preventDefault();joyActive=true;updateJoy(e);});
@@ -81,17 +79,14 @@ let dx=e.clientX-cx,dy=e.clientY-cy;
 document.getElementById("btn-fire").addEventListener("pointerdown",(e)=>{
     e.preventDefault();
     if(player.ammo>0){
-        player.ammo--;
-        document.getElementById("ammo").textContent=player.ammo;
-        weaponAnim=1;
+        player.ammo--; document.getElementById("ammo").textContent=player.ammo; weaponAnim=1;
     }
 });
 
-// 3D Рендер
 function castRays(){
     ctx.fillStyle="#111";ctx.fillRect(0,0,W,H);
     const fov=Math.PI/3;
-    const numRays=Math.floor(W/2); // Для оптимизации
+    const numRays=Math.floor(W/2); 
     const maxDepth=15;
 
     for(let i=0;i<numRays;i++){
@@ -121,7 +116,6 @@ function castRays(){
     }
 }
 
-// Отрисовка оружия (Нож-бабочка и AK)
 function drawWeapon(){
     ctx.save();
     let sway = Math.sin(Date.now()/200)*5;
@@ -132,23 +126,21 @@ function drawWeapon(){
         weaponAnim-=0.05;
     }
     
-    // Рисуем Нож-бабочку
+    // Нож-бабочка
     ctx.fillStyle="#aaa";
     ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(100,-20); ctx.lineTo(120,10); ctx.lineTo(20,30); ctx.fill();
     ctx.fillStyle="#222";
     ctx.fillRect(20,10,60,10);
     ctx.fillStyle="#555";
-    ctx.beginPath(); ctx.arc(30,20,8,0,Math.PI*2); ctx.fill(); // рукоять
+    ctx.beginPath(); ctx.arc(30,20,8,0,Math.PI*2); ctx.fill(); 
     
     ctx.restore();
 }
 
-// Главный цикл
 let lastTime=performance.now();
 function loop(time){
     const dt=Math.min((time-lastTime)/1000,0.05);lastTime=time;
     
-    // Движение
     let mx=0,my=0;
     if(keys.w)my+=1; if(keys.s)my-=1;
     if(mx!==0||my!==0){
@@ -158,11 +150,9 @@ function loop(time){
         if(map[Math.floor(player.y)][Math.floor(nx)]===0) player.x=nx;
     }
     
-    // Рендер
     castRays();
     drawWeapon();
     
-    // Мини-карта
     ctx.fillStyle="rgba(0,0,0,0.5)";ctx.fillRect(10,50,100,100);
     ctx.fillStyle="red";ctx.fillRect(10+player.x*6,50+player.y*6,4,4);
     for(let y=0;y<MAP_SIZE;y++){
