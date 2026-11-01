@@ -5,181 +5,203 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>METRO ROYALE X 3D</title>
 <style>
-*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#111;color:white;font-family:Arial}
+*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#151c19;color:white;font-family:Arial}
 canvas{display:block}
-#hud{position:fixed;top:10px;left:10px;background:#101a19dd;padding:12px;border:1px solid #49d6a0;border-radius:10px;font-size:13px;line-height:1.7;pointer-events:none}
-#msg{position:fixed;top:15%;left:50%;transform:translateX(-50%);background:#111d;padding:10px 18px;border-radius:9px;color:#65ffc0}
-#controls{position:fixed;bottom:15px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:end;pointer-events:none}
-.pad{display:grid;grid-template-columns:48px 48px 48px;grid-template-rows:48px 48px 48px;gap:4px;pointer-events:auto}
-button{border:1px solid #75dcb5;background:#152b27dd;color:white;border-radius:12px;font-size:17px;touch-action:none}
+#hud{position:fixed;top:9px;left:9px;padding:10px;background:#101c1bdc;border:1px solid #5ad5a1;border-radius:10px;font-size:13px;line-height:1.7;pointer-events:none}
+#message{position:fixed;top:15%;left:50%;transform:translateX(-50%);background:#101cdd;padding:10px;border-radius:9px;color:#6fffc1}
+#controls{position:fixed;bottom:16px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:end}
+.pad{display:grid;grid-template-columns:48px 48px 48px;grid-template-rows:48px 48px 48px;gap:4px}
+button{background:#172d29dd;color:white;border:1px solid #65d9ae;border-radius:12px;font-size:17px;touch-action:none}
 .pad button:nth-child(1){grid-column:2}.pad button:nth-child(2){grid-column:1;grid-row:2}.pad button:nth-child(3){grid-column:2;grid-row:2}.pad button:nth-child(4){grid-column:3;grid-row:2}.pad button:nth-child(5){grid-column:2;grid-row:3}
-.actions{display:flex;flex-direction:column;gap:9px;pointer-events:auto}
-.actions button{width:78px;height:53px;font-size:13px}
-#fire{background:#8b2929dd}#loot{background:#176b43dd}
-#help{position:fixed;bottom:5px;left:50%;transform:translateX(-50%);font-size:10px;color:#ddd;white-space:nowrap}
+.actions{display:flex;flex-direction:column;gap:9px}.actions button{width:85px;height:52px;font-size:13px}
+#fire{background:#842e2e}#loot{background:#176b43}
+#hint{position:fixed;bottom:4px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap}
 </style>
 </head>
 <body>
-<div id="hud">METRO ROYALE X 3D<br>HP: <span id="hp">100</span><br>Лут: <span id="cash">0</span><br>Боты: <span id="bots">0</span><br>Задача: найди выход</div>
-<div id="msg">3D МЕТРО ЗАГРУЖАЕТСЯ...</div>
+<div id="hud">METRO ROYALE X 3D<br>HP: <span id="hp">100</span><br>Лут: <span id="cash">0</span><br>Боты: <span id="bots">0</span><br>Режим: 3D</div>
+<div id="message">ЗАГРУЗКА 3D МИРА...</div>
 <div id="controls">
- <div class="pad">
-  <button data-k="w">▲</button><button data-k="a">◀</button><button data-k="s">▼</button><button data-k="d">▶</button>
- </div>
- <div class="actions">
-  <button id="loot">ЛУТ</button>
-  <button id="fire">ИМПУЛЬС</button>
- </div>
+<div class="pad">
+<button data-k="w">▲</button><button data-k="a">◀</button><button data-k="s">▼</button><button data-k="d">▶</button>
 </div>
-<div id="help">Двигайся кнопками • Проведи пальцем по экрану, чтобы повернуть камеру</div>
+<div class="actions">
+<button id="loot">ЛУТ</button><button id="fire">ИМПУЛЬС</button>
+</div>
+</div>
+<div id="hint">Кнопки — движение • Проведи пальцем по правой части экрана — поворот камеры</div>
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x9aaba5);
-scene.fog=new THREE.Fog(0x9aaba5,35,115);
-const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,300);
+scene.background=new THREE.Color(0x899b91);
+scene.fog=new THREE.Fog(0x899b91,45,150);
+const camera=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,.1,300);
 const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 renderer.shadowMap.enabled=true;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
-
-scene.add(new THREE.HemisphereLight(0xffffff,0x526052,2));
-const sun=new THREE.DirectionalLight(0xffffff,2);
-sun.position.set(-25,45,20);sun.castShadow=true;scene.add(sun);
-
-const mat=(c)=>new THREE.MeshStandardMaterial({color:c,roughness:.9});
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(180,180),mat(0x59665a));
-ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
-
-const grid=new THREE.GridHelper(180,60,0x657566,0x657566);
-grid.position.y=.02;scene.add(grid);
-
-function box(x,y,z,sx,sy,sz,color){
- const o=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat(color));
- o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;scene.add(o);return o;
+scene.add(new THREE.HemisphereLight(0xffffff,0x455448,2));
+const sun=new THREE.DirectionalLight(0xffe6c4,2.2);
+sun.position.set(-35,55,30);sun.castShadow=true;scene.add(sun);
+const material=c=>new THREE.MeshStandardMaterial({color:c,roughness:.92});
+function cube(x,y,z,w,h,d,c){
+ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(c));
+ m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m;
 }
-// Дороги и здания
-box(0,.04,0,13,.08,180,0x333b39);
-box(0,.05,0,180,.08,13,0x333b39);
-for(let i=0;i<34;i++){
+// Реальный объёмный ландшафт с холмами
+const geo=new THREE.PlaneGeometry(190,190,65,65);
+const pos=geo.attributes.position;
+for(let i=0;i<pos.count;i++){
+ const x=pos.getX(i),y=pos.getY(i);
+ pos.setZ(i,Math.sin(x*.09)*.7+Math.cos(y*.07)*.8+Math.sin((x+y)*.045)*.5);
+}
+geo.computeVertexNormals();
+const terrain=new THREE.Mesh(geo,material(0x65765c));
+terrain.rotation.x=-Math.PI/2;terrain.receiveShadow=true;scene.add(terrain);
+// Дороги
+cube(0,.08,0,13,.12,190,0x343b39);
+cube(0,.09,0,190,.12,13,0x343b39);
+for(let i=-80;i<=80;i+=8){
+ cube(i,.16,0,.12,.03,2,0xb4a77d);
+ cube(0,.16,i,2,.03,.12,0xb4a77d);
+}
+// Детализированные здания
+for(let i=0;i<27;i++){
  let x=(Math.random()-.5)*145,z=(Math.random()-.5)*145;
- if(Math.abs(x)<13||Math.abs(z)<13)continue;
- let w=6+Math.random()*9,d=6+Math.random()*9,h=4+Math.random()*9;
- box(x,h/2,z,w,h,d,[0x77766b,0x555d59,0x77716a,0x414b49][i%4]);
- box(x,h+.12,z,w+.2,.25,d+.2,0x343b38);
+ if(Math.abs(x)<16||Math.abs(z)<16)continue;
+ let w=7+Math.random()*8,d=7+Math.random()*8,h=5+Math.random()*8;
+ let colors=[0x77776d,0x666d67,0x555c58,0x837b6b];
+ cube(x,h/2,z,w,h,d,colors[i%4]);
+ cube(x,h+.08,z,w+.25,.18,d+.25,0x363c39);
+ // Окна
+ for(let side=-1;side<=1;side+=2){
+  for(let j=-1;j<=1;j++){
+   let win=cube(x+j*w*.27,h*.65,z+side*(d/2+.02),1.1,1,.08,0x273d40);
+  }
+ }
+ // Дверь
+ cube(x,.9,z+d/2+.04,1.4,1.8,.1,0x47372a);
 }
-// Заборы и контейнеры
-for(let i=0;i<12;i++){
- let x=(Math.random()-.5)*100,z=(Math.random()-.5)*100;
+// Деревья
+for(let i=0;i<55;i++){
+ let x=(Math.random()-.5)*165,z=(Math.random()-.5)*165;
+ if(Math.abs(x)<12||Math.abs(z)<12)continue;
+ cube(x,1.2,z,.55,2.4,.55,0x493b2b);
+ const crown=new THREE.Mesh(new THREE.ConeGeometry(2.1,5,7),material(0x315b3b));
+ crown.position.set(x,4,z);crown.castShadow=true;scene.add(crown);
+}
+// Контейнеры
+for(let i=0;i<13;i++){
+ let x=(Math.random()-.5)*120,z=(Math.random()-.5)*120;
  if(Math.abs(x)<15&&Math.abs(z)<15)continue;
- box(x,.8,z,4,1.6,2,i%2?0x8c603b:0x42645b);
+ let c=cube(x,1,z,6,2,2,i%2?0x536d65:0x76563b);
+ for(let j=-2;j<=2;j++)cube(x+j*1.1,1.1,z+1.02,.06,1.8,.05,0x263d38);
 }
-// Персонаж
+// Игровой персонаж: тело, голова, рюкзак, ноги
 const player=new THREE.Group();
-const body=new THREE.Mesh(new THREE.CapsuleGeometry(.55,.9,4,8),mat(0x263e39));
-body.position.y=1.15;player.add(body);
-const head=new THREE.Mesh(new THREE.SphereGeometry(.34,12,10),mat(0xd0ad88));
-head.position.y=2;player.add(head);
-const marker=new THREE.Mesh(new THREE.BoxGeometry(.22,.22,.22),mat(0x54e7bd));
-marker.position.set(0,1.15,.58);player.add(marker);
+const body=new THREE.Mesh(new THREE.CapsuleGeometry(.48,.85,5,10),material(0x344c42));
+body.position.y=1.35;player.add(body);
+const head=new THREE.Mesh(new THREE.SphereGeometry(.34,16,12),material(0xd2ae8b));
+head.position.y=2.15;player.add(head);
+const backpack=new THREE.Mesh(new THREE.BoxGeometry(.65,.85,.35),material(0x514c37));
+backpack.position.set(0,1.35,-.55);player.add(backpack);
+const leg1=cube(0,0,0,.01,.01,.01,0xffffff);scene.remove(leg1);
 player.position.set(0,0,0);scene.add(player);
-
-// Выход
-const exit=new THREE.Mesh(new THREE.CylinderGeometry(3,3,.15,32),new THREE.MeshBasicMaterial({color:0x26ff91,transparent:true,opacity:.55}));
-exit.position.set(65,.12,65);scene.add(exit);
-const exitRing=new THREE.Mesh(new THREE.TorusGeometry(3,.16,8,32),new THREE.MeshBasicMaterial({color:0x42ffad}));
-exitRing.rotation.x=Math.PI/2;exitRing.position.set(65,.25,65);scene.add(exitRing);
-
-// Лут
-let loot=[];
-for(let i=0;i<18;i++){
- let x=(Math.random()-.5)*115,z=(Math.random()-.5)*115;
- const m=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),mat(i%4===0?0xe4bd45:0x38b9a0));
- m.position.set(x,.6,z);scene.add(m);loot.push(m);
-}
-// Боты - игровые манекены
-let bots=[];
-for(let i=0;i<7;i++){
- let b=new THREE.Group();
- let torso=new THREE.Mesh(new THREE.CapsuleGeometry(.48,.85,4,8),mat(0x8b5146));
- torso.position.y=1;b.add(torso);
- let h=new THREE.Mesh(new THREE.SphereGeometry(.3,10,8),mat(0xc99d76));
- h.position.y=1.85;b.add(h);
- b.position.set((Math.random()-.5)*90,0,(Math.random()-.5)*90);
- scene.add(b);bots.push(b);
-}
-// Светящиеся игровые импульсы
-let shots=[];
-function shoot(){
- const dir=new THREE.Vector3(Math.sin(player.rotation.y),0,Math.cos(player.rotation.y));
- const orb=new THREE.Mesh(new THREE.SphereGeometry(.17,12,10),new THREE.MeshBasicMaterial({color:0x35eaff}));
- orb.position.copy(player.position).add(new THREE.Vector3(0,1.3,0)).addScaledVector(dir,1.2);
- scene.add(orb);shots.push({mesh:orb,dir:dir.clone(),life:2});
-}
-let cash=0,hp=100,yaw=0,keys={},touchX=null;
-const msg=document.getElementById('msg');
-function say(t){msg.textContent=t;msg.style.display='block';clearTimeout(say.timer);say.timer=setTimeout(()=>msg.style.display='none',1800)}
+// Камера и управление
+let yaw=0,keys={},cash=0,hp=100,shots=[],loot=[],bots=[];
 document.querySelectorAll('[data-k]').forEach(b=>{
  const k=b.dataset.k;
- b.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=true});
- ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false));
+ b.onpointerdown=e=>{e.preventDefault();keys[k]=true};
+ ['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false));
 });
 addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true);
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
-document.getElementById('fire').onclick=shoot;
+let dragging=false,lastX=0;
+renderer.domElement.addEventListener('pointerdown',e=>{if(e.clientX>innerWidth*.35){dragging=true;lastX=e.clientX}});
+renderer.domElement.addEventListener('pointermove',e=>{if(dragging){yaw-=(e.clientX-lastX)*.008;lastX=e.clientX}});
+renderer.domElement.addEventListener('pointerup',()=>dragging=false);
+renderer.domElement.addEventListener('pointercancel',()=>dragging=false);
+// Лут
+for(let i=0;i<22;i++){
+ let x=(Math.random()-.5)*125,z=(Math.random()-.5)*125;
+ let g=new THREE.Group();
+ const base=new THREE.Mesh(new THREE.BoxGeometry(1.5,1,1.2),material(0x795333));
+ base.position.y=.5;g.add(base);
+ const lid=new THREE.Mesh(new THREE.BoxGeometry(1.55,.18,1.25),material(0xc49b50));
+ lid.position.y=1.1;g.add(lid);
+ g.position.set(x,0,z);scene.add(g);loot.push(g);
+}
+// Боты — игровые персонажи
+function makeBot(x,z){
+ let b=new THREE.Group();
+ const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.45,.8,5,8),material(0x765149));
+ torso.position.y=1.2;b.add(torso);
+ const h=new THREE.Mesh(new THREE.SphereGeometry(.3,12,10),material(0xc49a78));
+ h.position.y=2;b.add(h);
+ b.position.set(x,0,z);scene.add(b);return b;
+}
+for(let i=0;i<8;i++)bots.push(makeBot((Math.random()-.5)*90,(Math.random()-.5)*90));
+// Эвакуация
+const exit=new THREE.Group();
+const ring=new THREE.Mesh(new THREE.TorusGeometry(4,.2,12,40),new THREE.MeshBasicMaterial({color:0x35ff9d}));
+ring.rotation.x=Math.PI/2;ring.position.y=.2;exit.add(ring);
+const beam=new THREE.Mesh(new THREE.CylinderGeometry(3,3,8,32,1,true),new THREE.MeshBasicMaterial({color:0x35ff9d,transparent:true,opacity:.13,side:THREE.DoubleSide}));
+beam.position.y=4;exit.add(beam);exit.position.set(70,0,70);scene.add(exit);
+function say(t){const el=document.getElementById('message');el.textContent=t;el.style.display='block';clearTimeout(say.timer);say.timer=setTimeout(()=>el.style.display='none',1800)}
 document.getElementById('loot').onclick=()=>{
- let best=null,dist=4;
- for(const l of loot){let d=l.position.distanceTo(player.position);if(d<dist){dist=d;best=l}}
- if(best){scene.remove(best);loot=loot.filter(x=>x!==best);cash+=100;document.getElementById('cash').textContent=cash;say('ЛУТ НАЙДЕН +100')}
- else say('Подойди ближе к контейнеру');
+ let best=-1,bd=5;
+ loot.forEach((l,i)=>{let d=l.position.distanceTo(player.position);if(d<bd){bd=d;best=i}});
+ if(best<0)return say('ПОДОЙДИ К КОНТЕЙНЕРУ');
+ scene.remove(loot[best]);loot.splice(best,1);cash+=100;
+ document.getElementById('cash').textContent=cash;say('ЛУТ +100');
 };
-renderer.domElement.addEventListener('pointerdown',e=>{touchX=e.clientX});
-renderer.domElement.addEventListener('pointermove',e=>{
- if(touchX!==null&&e.buttons){yaw-=(e.clientX-touchX)*.006;touchX=e.clientX}
-});
-renderer.domElement.addEventListener('pointerup',()=>touchX=null);
+// Видимый светящийся импульс
+document.getElementById('fire').onclick=()=>{
+ const dir=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
+ const orb=new THREE.Mesh(new THREE.SphereGeometry(.22,16,12),new THREE.MeshBasicMaterial({color:0x32edff}));
+ const glow=new THREE.PointLight(0x32edff,2,4);orb.add(glow);
+ orb.position.copy(player.position).add(new THREE.Vector3(0,1.5,0)).addScaledVector(dir,1.3);
+ scene.add(orb);shots.push({mesh:orb,dir,life:2});
+};
 let last=performance.now();
 function animate(now){
  requestAnimationFrame(animate);
- let dt=Math.min((now-last)/1000,.04);last=now;
- let f=(keys.w?1:0)-(keys.s?1:0),side=(keys.d?1:0)-(keys.a?1:0);
- let forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
- let right=new THREE.Vector3(forward.z,0,-forward.x);
+ const dt=Math.min((now-last)/1000,.04);last=now;
+ let f=(keys.w?1:0)-(keys.s?1:0),s=(keys.d?1:0)-(keys.a?1:0);
+ const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
+ const right=new THREE.Vector3(forward.z,0,-forward.x);
  player.position.addScaledVector(forward,f*8*dt);
- player.position.addScaledVector(right,side*8*dt);
+ player.position.addScaledVector(right,s*8*dt);
+ player.position.x=THREE.MathUtils.clamp(player.position.x,-88,88);
+ player.position.z=THREE.MathUtils.clamp(player.position.z,-88,88);
  player.rotation.y=yaw;
- player.position.x=THREE.MathUtils.clamp(player.position.x,-85,85);
- player.position.z=THREE.MathUtils.clamp(player.position.z,-85,85);
- // Камера за персонажем
- let target=new THREE.Vector3(player.position.x-Math.sin(yaw)*9,5.5,player.position.z-Math.cos(yaw)*9);
+ const target=new THREE.Vector3(player.position.x-Math.sin(yaw)*8,5,player.position.z-Math.cos(yaw)*8);
  camera.position.lerp(target,1-Math.pow(.001,dt));
  camera.lookAt(player.position.x,1.3,player.position.z);
- // Боты двигаются к игроку
- for(const b of bots){
-  let dx=player.position.x-b.position.x,dz=player.position.z-b.position.z;
-  let d=Math.hypot(dx,dz);
-  if(d>2){b.position.x+=dx/d*1.15*dt;b.position.z+=dz/d*1.15*dt}
+ bots.forEach(b=>{
+  const dx=player.position.x-b.position.x,dz=player.position.z-b.position.z,d=Math.hypot(dx,dz);
+  if(d>3){b.position.x+=dx/d*1.2*dt;b.position.z+=dz/d*1.2*dt}
   b.lookAt(player.position.x,0,player.position.z);
- }
- // Полёт видимых импульсов и попадание по игровым ботам
- for(const s of shots){
-  s.mesh.position.addScaledVector(s.dir,24*dt);s.life-=dt;
-  for(const b of [...bots]){
-   if(s.mesh.position.distanceTo(new THREE.Vector3(b.position.x,b.position.y+1,b.position.z))<1.2){
+ });
+ shots.forEach(s=>{
+  s.mesh.position.addScaledVector(s.dir,25*dt);s.life-=dt;
+  bots.forEach(b=>{
+   if(s.life>0&&s.mesh.position.distanceTo(new THREE.Vector3(b.position.x,b.position.y+1,b.position.z))<1.3){
     scene.remove(b);bots=bots.filter(x=>x!==b);s.life=0;cash+=50;
-    document.getElementById('cash').textContent=cash;say('БОТ ОТСТУПИЛ +50');
+    document.getElementById('cash').textContent=cash;say('БОТ УДАЛЁН +50');
    }
-  }
- }
+  });
+ });
  shots=shots.filter(s=>{if(s.life<=0){scene.remove(s.mesh);return false}return true});
  document.getElementById('bots').textContent=bots.length;
  if(player.position.distanceTo(exit.position)<5)say('ЭВАКУАЦИЯ ДОСТУПНА!');
+ document.getElementById('hp').textContent=hp;
  renderer.render(scene,camera);
 }
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-say('3D МЕТРО ГОТОВО!');requestAnimationFrame(animate);
+say('3D МИР ЗАГРУЖЕН');requestAnimationFrame(animate);
 </script>
 </body>
 </html>
