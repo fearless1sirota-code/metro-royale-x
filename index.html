@@ -55,6 +55,20 @@ let touchStartX=0;
 let weaponAnim=0;
 
 const joyLeft=document.getElementById("joy-left"),stick=document.getElementById("joy-left-stick");
+let sprint=false;
+let moveX=0;
+const sprintBtn=document.createElement("button");
+sprintBtn.id="sprint";
+sprintBtn.textContent="СПРИНТ";
+sprintBtn.style.cssText="position:absolute;bottom:155px;left:45px;width:100px;height:48px;background:#326b32;border:2px solid #8f8;color:white;border-radius:12px;z-index:25;font-weight:bold";
+document.body.appendChild(sprintBtn);
+sprintBtn.onpointerdown=e=>{e.preventDefault();sprint=true;};
+sprintBtn.onpointerup=()=>sprint=false;
+sprintBtn.onpointercancel=()=>sprint=false;
+const aim=document.createElement("div");
+aim.style.cssText="position:absolute;right:35px;bottom:140px;color:white;font-size:12px;z-index:20";
+aim.textContent="ПОВОРОТ: ПРАВАЯ ЧАСТЬ ЭКРАНА";
+document.body.appendChild(aim);
 let joyActive=false;
 joyLeft.addEventListener("pointerdown",(e)=>{e.preventDefault();joyActive=true;updateJoy(e);});
 document.addEventListener("pointermove",(e)=>{
@@ -72,9 +86,9 @@ function updateJoy(e){
 let dx=e.clientX-cx,dy=e.clientY-cy;
     const max=35,dist=Math.hypot(dx,dy);
     if(dist>max){dx=(dx/dist)*max;dy=(dy/dist)*max;}
-    stick.style.transform=translate(${dx}px,${dy}px);
+    stick.style.transform=`translate(${dx}px,${dy}px)`;
     keys.w=dy<-10; keys.s=dy>10;
-    player.dir -= dx*0.005;
+    moveX=dx/35;
 }
 document.getElementById("btn-fire").addEventListener("pointerdown",(e)=>{
     e.preventDefault();
@@ -98,7 +112,7 @@ function castRays(){
             dist+=0.05;
             let testX=player.x+rayX*dist,testY=player.y+rayY*dist;
             let mapX=Math.floor(testX),mapY=Math.floor(testY);
-            if(mapX<0mapX>=MAP_SIZEmapY<0||mapY>=MAP_SIZE){hit=true;dist=maxDepth;}
+            if(mapX<0 || mapX>=MAP_SIZE || mapY<0 || mapY>=MAP_SIZE){hit=true;dist=maxDepth;}
             else if(map[mapY][mapX]>0){hit=true;}
         }
         
@@ -144,8 +158,8 @@ function loop(time){
     let mx=0,my=0;
     if(keys.w)my+=1; if(keys.s)my-=1;
     if(mx!==0||my!==0){
-        let nx=player.x+Math.cos(player.dir)*my*player.speed*dt;
-        let ny=player.y+Math.sin(player.dir)*my*player.speed*dt;
+        let sp=sprint?1.8:1; let nx=player.x+(Math.cos(player.dir)*my-Math.sin(player.dir)*moveX)*player.speed*sp*dt;
+        let ny=player.y+(Math.sin(player.dir)*my+Math.cos(player.dir)*moveX)*player.speed*sp*dt;
         if(map[Math.floor(ny)][Math.floor(player.x)]===0) player.y=ny;
         if(map[Math.floor(player.y)][Math.floor(nx)]===0) player.x=nx;
     }
