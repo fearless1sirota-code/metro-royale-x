@@ -10,15 +10,15 @@
     #hud{position:absolute;top:0;left:0;width:100%;height:40px;background:rgba(10,15,10,0.8);display:flex;justify-content:space-between;align-items:center;padding:0 10px;font-size:14px;z-index:10;border-bottom:1px solid #333}
     #event{position:absolute;top:40px;width:100%;height:25px;background:rgba(40,30,20,0.9);color:#ffb347;text-align:center;font-size:12px;line-height:25px;z-index:10}
     canvas{display:block;width:100%;height:100%}
-    #joy-left{position:absolute;bottom:20px;left:20px;width:120px;height:120px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.3);border-radius:50%;z-index:20}
-    #joy-left-stick{position:absolute;top:35px;left:35px;width:50px;height:50px;background:rgba(255,255,255,0.3);border-radius:50%;pointer-events:none}
+    #joy-left{position:absolute;bottom:20px;left:20px;width:120px;height:120px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);border-radius:50%;z-index:20}
+    #joy-left-stick{position:absolute;top:35px;left:35px;width:50px;height:50px;background:rgba(255,255,255,0.2);border-radius:50%;pointer-events:none}
     #btn-fire{position:absolute;bottom:40px;right:40px;width:80px;height:80px;background:rgba(200,50,50,0.6);border:2px solid #f55;border-radius:50%;color:#fff;font-weight:bold;z-index:20;display:flex;align-items:center;justify-content:center}
     #crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:2px;height:2px;background:red;z-index:5}
 </style>
 </head>
 <body>
 <div id="hud"><span>❤️ <b id="hp">100</b></span><span>💰 <b id="cash">0</b></span><span>🔫 <b id="ammo">30</b></span></div>
-<div id="event">ЗАГРУЗКА СЕКТОРА...</div>
+<div id="event">ИНИЦИАЛИЗАЦИЯ...</div>
 <canvas id="game"></canvas>
 <div id="crosshair"></div>
 <div id="joy-left"><div id="joy-left-stick"></div></div>
@@ -52,6 +52,8 @@ const map=[
 let player={x:2.5,y:2.5,dir:0,hp:100,ammo:30,cash:0,speed:2.5};
 let keys={w:false,s:false};
 let touchStartX=0,touchStartY=0;
+let weaponAnim=0;
+let isFiring=false;
 
 // Управление
 const joyLeft=document.getElementById("joy-left"),stick=document.getElementById("joy-left-stick");
@@ -60,7 +62,6 @@ joyLeft.addEventListener("pointerdown",(e)=>{e.preventDefault();joyActive=true;u
 document.addEventListener("pointermove",(e)=>{
     if(joyActive)updateJoy(e);
     else if(e.clientX>window.innerWidth/2 && Math.abs(e.clientX-touchStartX)>2){
-        // Свайп для поворота
         player.dir += (e.clientX-touchStartX)*0.005;
         touchStartX=e.clientX;
     }
@@ -75,47 +76,71 @@ let dx=e.clientX-cx,dy=e.clientY-cy;
     if(dist>max){dx=(dx/dist)*max;dy=(dy/dist)*max;}
     stick.style.transform=translate(${dx}px,${dy}px);
     keys.w=dy<-10; keys.s=dy>10;
-    // Сдвиг вбок
     player.dir -= dx*0.005;
 }
-document.getElementById("btn-fire").addEventListener("pointerdown",(e)=>{e.preventDefault();player.ammo--;document.getElementById("ammo").textContent=player.ammo;});
+document.getElementById("btn-fire").addEventListener("pointerdown",(e)=>{
+    e.preventDefault();
+    if(player.ammo>0){
+        player.ammo--;
+        document.getElementById("ammo").textContent=player.ammo;
+        weaponAnim=1;
+    }
+});
 
-// Raycasting 3D
+// 3D Рендер
 function castRays(){
-    ctx.fillStyle="#000";ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="#111";ctx.fillRect(0,0,W,H);
     const fov=Math.PI/3;
-    const numRays=W;
+    const numRays=Math.floor(W/2); // Для оптимизации
     const maxDepth=15;
 
     for(let i=0;i<numRays;i++){
-        let rayAngle=player.dir-fov/2+(i/W)*fov;
+        let rayAngle=player.dir-fov/2+(i/numRays)*fov;
         let rayX=Math.cos(rayAngle),rayY=Math.sin(rayAngle);
-        let dist=0,hit=false,side=0;
+        let dist=0,hit=false;
         
         while(!hit && dist<maxDepth){
             dist+=0.05;
             let testX=player.x+rayX*dist,testY=player.y+rayY*dist;
             let mapX=Math.floor(testX),mapY=Math.floor(testY);
-            
             if(mapX<0mapX>=MAP_SIZEmapY<0||mapY>=MAP_SIZE){hit=true;dist=maxDepth;}
             else if(map[mapY][mapX]>0){hit=true;}
         }
         
-        // Убираем рыбоглазость
         let correctedDist=dist*Math.cos(rayAngle-player.dir);
         let wallHeight=(H/2)/correctedDist;
         
-        // Текстура (цвет в зависимости от клетки)
         let mapX=Math.floor(player.x+rayX*dist),mapY=Math.floor(player.y+rayY*dist);
         let color=map[mapY] && map[mapY][mapX]===1 ? (mapY%2===0?"#4a4f45":"#3a3f35") : "#2a2e26";
         
-        // Затемнение по дистанции
         let shade=Math.max(0.1,1-correctedDist/maxDepth);
         ctx.fillStyle=color;
         ctx.globalAlpha=shade;
-        ctx.fillRect(i,(H-wallHeight)/2,1,wallHeight);
+        ctx.fillRect(i*2,(H-wallHeight)/2,2,wallHeight);
         ctx.globalAlpha=1;
     }
+}
+
+// Отрисовка оружия (Нож-бабочка и AK)
+function drawWeapon(){
+    ctx.save();
+    let sway = Math.sin(Date.now()/200)*5;
+    ctx.translate(W-150, H-50+sway);
+    
+    if(weaponAnim>0){
+        ctx.rotate(0.5);
+        weaponAnim-=0.05;
+    }
+    
+    // Рисуем Нож-бабочку
+    ctx.fillStyle="#aaa";
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(100,-20); ctx.lineTo(120,10); ctx.lineTo(20,30); ctx.fill();
+    ctx.fillStyle="#222";
+    ctx.fillRect(20,10,60,10);
+    ctx.fillStyle="#555";
+    ctx.beginPath(); ctx.arc(30,20,8,0,Math.PI*2); ctx.fill(); // рукоять
+    
+    ctx.restore();
 }
 
 // Главный цикл
@@ -124,23 +149,26 @@ function loop(time){
     const dt=Math.min((time-lastTime)/1000,0.05);lastTime=time;
     
     // Движение
-    if(keys.w){player.x+=Math.cos(player.dir)*player.speed*dt;player.y+=Math.sin(player.dir)*player.speed*dt;}
-    if(keys.s){player.x-=Math.cos(player.dir)*player.speed*dt;player.y-=Math.sin(player.dir)*player.speed*dt;}
+    let mx=0,my=0;
+    if(keys.w)my+=1; if(keys.s)my-=1;
+    if(mx!==0||my!==0){
+        let nx=player.x+Math.cos(player.dir)*my*player.speed*dt;
+        let ny=player.y+Math.sin(player.dir)*my*player.speed*dt;
+        if(map[Math.floor(ny)][Math.floor(player.x)]===0) player.y=ny;
+        if(map[Math.floor(player.y)][Math.floor(nx)]===0) player.x=nx;
+    }
     
-    // Проверка коллизий
-    let nextX=player.x+Math.cos(player.dir)*0.1,nextY=player.y+Math.sin(player.dir)*0.1;
-    if(map[Math.floor(player.y)][Math.floor(nextX)]===0)player.x+=Math.cos(player.dir)*player.speed*dt;
-    if(map[Math.floor(nextY)][Math.floor(player.x)]===0)player.y+=Math.sin(player.dir)*player.speed*dt;
-    
+    // Рендер
     castRays();
+    drawWeapon();
     
-    // Мини-карта (в углу)
-    ctx.fillStyle="rgba(0,0,0,0.5)";ctx.fillRect(W-100,40,100,100);
-    ctx.fillStyle="red";ctx.fillRect(W-100+player.x*6,40+player.y*6,4,4);
+    // Мини-карта
+    ctx.fillStyle="rgba(0,0,0,0.5)";ctx.fillRect(10,50,100,100);
+    ctx.fillStyle="red";ctx.fillRect(10+player.x*6,50+player.y*6,4,4);
     for(let y=0;y<MAP_SIZE;y++){
         for(let x=0;x<MAP_SIZE;x++){
             if(map[y][x]===1){
-                ctx.fillStyle="#555";ctx.fillRect(W-100+x*6,40+y*6,6,6);
+                ctx.fillStyle="#333";ctx.fillRect(10+x*6,50+y*6,6,6);
             }
         }
     }
