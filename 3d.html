@@ -192,7 +192,7 @@ function animate(now){
  let f=(keys.w?1:0)-(keys.s?1:0),s=(keys.d?1:0)-(keys.a?1:0);
  const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
  const right=new THREE.Vector3(forward.z,0,-forward.x);
- const speed=running?13:8;
+ const speed=(window.metroSprinting || running)?16:8;
  const mx=(window.joyX||0), my=(window.joyY||0);
  const moveF=f!==0?f:-my, moveS=s!==0?s:mx;
  player.position.addScaledVector(forward,moveF*speed*dt);
@@ -248,6 +248,42 @@ pad.addEventListener('pointerdown',e=>{active=true;pad.setPointerCapture(e.point
 pad.addEventListener('pointermove',e=>{if(active)move(e)});
 function stop(){active=false;window.joyX=0;window.joyY=0;knob.style.left='40px';knob.style.top='40px'}
 pad.addEventListener('pointerup',stop);pad.addEventListener('pointercancel',stop);
+})();
+</script>
+
+<style>
+#sprintFix{
+ position:fixed;right:25px;bottom:105px;z-index:999999;
+ width:90px;height:90px;border-radius:50%;
+ border:3px solid white;background:#a52b2bdd;color:white;
+ font-weight:900;font-size:15px;
+ box-shadow:0 0 18px #ff4444;
+ touch-action:none;user-select:none;
+ display:flex;align-items:center;justify-content:center;
+}
+#sprintFix.active{background:#21a34a;transform:scale(1.08)}
+</style>
+<div id="sprintFix">СПРИНТ</div>
+<script>
+(()=>{
+ const b=document.getElementById('sprintFix');
+ if(!b)return;
+ const start=e=>{
+  e.preventDefault();
+  window.metroSprinting=true;
+  b.classList.add('active');
+  try{b.setPointerCapture(e.pointerId)}catch(_){}
+ };
+ const stop=()=>{
+  window.metroSprinting=false;
+  b.classList.remove('active');
+ };
+ b.addEventListener('pointerdown',start);
+ b.addEventListener('pointerup',stop);
+ b.addEventListener('pointercancel',stop);
+ b.addEventListener('lostpointercapture',stop);
+ window.addEventListener('blur',stop);
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
 })();
 </script>
 </body>
