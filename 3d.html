@@ -192,8 +192,11 @@ function animate(now){
  let f=(keys.w?1:0)-(keys.s?1:0),s=(keys.d?1:0)-(keys.a?1:0);
  const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
  const right=new THREE.Vector3(forward.z,0,-forward.x);
- player.position.addScaledVector(forward,f*8*dt);
- player.position.addScaledVector(right,s*8*dt);
+ const speed=running?13:8;
+ const mx=(window.joyX||0), my=(window.joyY||0);
+ const moveF=f!==0?f:-my, moveS=s!==0?s:mx;
+ player.position.addScaledVector(forward,moveF*speed*dt);
+ player.position.addScaledVector(right,moveS*speed*dt);
  player.position.x=THREE.MathUtils.clamp(player.position.x,-88,88);
  player.position.z=THREE.MathUtils.clamp(player.position.z,-88,88);
  player.rotation.y=yaw;
@@ -222,6 +225,30 @@ function animate(now){
 }
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 say('3D МИР ЗАГРУЖЕН');requestAnimationFrame(animate);
+</script>
+
+<div id="joystick"><div id="stick"></div></div>
+<style>
+#joystick{position:fixed;left:25px;bottom:35px;width:130px;height:130px;border:3px solid #ffffff88;border-radius:50%;background:#1118;z-index:20;touch-action:none}
+#stick{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:#b8a0ff;border:2px solid white;box-shadow:0 0 15px #8b5cff}
+</style>
+<script>
+(()=>{
+const pad=document.getElementById('joystick'),knob=document.getElementById('stick');
+let active=false,cx=0,cy=0;
+window.joyX=0;window.joyY=0;
+function move(e){
+ const r=pad.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);
+ const max=42,len=Math.hypot(dx,dy),k=len>max?max/len:1;
+ const x=dx*k,y=dy*k;
+ knob.style.left=(40+x)+'px';knob.style.top=(40+y)+'px';
+ window.joyX=x/max;window.joyY=y/max;
+}
+pad.addEventListener('pointerdown',e=>{active=true;pad.setPointerCapture(e.pointerId);move(e)});
+pad.addEventListener('pointermove',e=>{if(active)move(e)});
+function stop(){active=false;window.joyX=0;window.joyY=0;knob.style.left='40px';knob.style.top='40px'}
+pad.addEventListener('pointerup',stop);pad.addEventListener('pointercancel',stop);
+})();
 </script>
 </body>
 </html>
