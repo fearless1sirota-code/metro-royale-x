@@ -16,17 +16,26 @@ button{background:#172d29dd;color:white;border:1px solid #65d9ae;border-radius:1
 .actions{display:flex;flex-direction:column;gap:9px}.actions button{width:85px;height:52px;font-size:13px}
 #fire{background:#842e2e}#loot{background:#176b43}
 #hint{position:fixed;bottom:4px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap}
+#crosshair{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-size:27px;color:#fff;text-shadow:0 0 5px #000;pointer-events:none}
+.actions button{height:48px}
+#run{background:#52652d}#jump{background:#345c86}
+.pad button{background:#172d29bb;backdrop-filter:blur(5px)}
+#hud{backdrop-filter:blur(8px);box-shadow:0 3px 16px #0008}
 </style>
 </head>
 <body>
 <div id="hud">METRO ROYALE X 3D<br>HP: <span id="hp">100</span><br>Лут: <span id="cash">0</span><br>Боты: <span id="bots">0</span><br>Режим: 3D</div>
 <div id="message">ЗАГРУЗКА 3D МИРА...</div>
+<div id="crosshair">+</div>
 <div id="controls">
-<div class="pad">
+<div class="pad" id="pad">
 <button data-k="w">▲</button><button data-k="a">◀</button><button data-k="s">▼</button><button data-k="d">▶</button>
 </div>
 <div class="actions">
-<button id="loot">ЛУТ</button><button id="fire">ИМПУЛЬС</button>
+<button id="run">БЕГ</button>
+<button id="jump">ПРЫЖОК</button>
+<button id="loot">ЛУТ</button>
+<button id="fire">ИМПУЛЬС</button>
 </div>
 </div>
 <div id="hint">Кнопки — движение • Проведи пальцем по правой части экрана — поворот камеры</div>
@@ -40,11 +49,18 @@ const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.15;
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xffffff,0x455448,2));
 const sun=new THREE.DirectionalLight(0xffe6c4,2.2);
-sun.position.set(-35,55,30);sun.castShadow=true;scene.add(sun);
+sun.position.set(-35,55,30);sun.castShadow=true;
+sun.shadow.mapSize.set(1024,1024);
+sun.shadow.camera.left=-90;sun.shadow.camera.right=90;
+sun.shadow.camera.top=90;sun.shadow.camera.bottom=-90;
+scene.add(sun);
 const material=c=>new THREE.MeshStandardMaterial({color:c,roughness:.92});
 function cube(x,y,z,w,h,d,c){
  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(c));
@@ -110,7 +126,7 @@ backpack.position.set(0,1.35,-.55);player.add(backpack);
 const leg1=cube(0,0,0,.01,.01,.01,0xffffff);scene.remove(leg1);
 player.position.set(0,0,0);scene.add(player);
 // Камера и управление
-let yaw=0,keys={},cash=0,hp=100,shots=[],loot=[],bots=[];
+let yaw=0,keys={},cash=0,hp=100,shots=[],loot=[],bots=[],running=false,jumping=false,jumpTime=0;
 document.querySelectorAll('[data-k]').forEach(b=>{
  const k=b.dataset.k;
  b.onpointerdown=e=>{e.preventDefault();keys[k]=true};
@@ -119,10 +135,14 @@ document.querySelectorAll('[data-k]').forEach(b=>{
 addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true);
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
 let dragging=false,lastX=0;
-renderer.domElement.addEventListener('pointerdown',e=>{if(e.clientX>innerWidth*.35){dragging=true;lastX=e.clientX}});
+renderer.domElement.addEventListener('pointerdown',e=>{if(e.clientX>innerWidth*.42){dragging=true;lastX=e.clientX}});
 renderer.domElement.addEventListener('pointermove',e=>{if(dragging){yaw-=(e.clientX-lastX)*.008;lastX=e.clientX}});
 renderer.domElement.addEventListener('pointerup',()=>dragging=false);
 renderer.domElement.addEventListener('pointercancel',()=>dragging=false);
+document.getElementById('run').onpointerdown=()=>running=true;
+document.getElementById('run').onpointerup=()=>running=false;
+document.getElementById('run').onpointerleave=()=>running=false;
+document.getElementById('jump').onclick=()=>{if(!jumping){jumping=true;jumpTime=0}};
 // Лут
 for(let i=0;i<22;i++){
  let x=(Math.random()-.5)*125,z=(Math.random()-.5)*125;
