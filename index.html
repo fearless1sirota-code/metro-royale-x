@@ -19,7 +19,7 @@ canvas{display:block;width:100vw;height:100dvh;background:#18231d}
 #actions{display:grid;grid-template-columns:repeat(2,76px);gap:8px;pointer-events:auto}
 button{background:#182a32ed;color:white;border:1px solid #8ca1a9;border-radius:10px;padding:13px 5px;font-weight:bold;font-size:12px}
 button:active{background:#55717b}
-#fire{background:#8d2929ed}
+#fire{background:#8d2929ed}\n#lootBtn{background:#176b43;border-color:#5ce6a0}
 #inventory{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(310px,90vw);background:#101a20f5;border:1px solid #9baeb4;border-radius:14px;padding:15px;display:none;z-index:5}
 #inventory button{width:100%;margin-top:8px}
 #message{position:absolute;top:125px;left:50%;transform:translateX(-50%);background:#101a20dd;padding:8px 13px;border-radius:8px;color:#ffe08a;font-size:13px;text-align:center;pointer-events:none}
@@ -46,6 +46,7 @@ button:active{background:#55717b}
   <button id="reload">ПЕРЕЗАРЯДКА</button>
   <button id="switch">СМЕНИТЬ ОРУЖИЕ</button>
   <button id="heal">АПТЕЧКА</button>
+  <button id="lootBtn">ЛУТ</button>
   <button id="bag">ИНВЕНТАРЬ</button>
   <button id="exit">ВЫХОД</button>
  </div>
@@ -67,7 +68,7 @@ const weapons=[
  {name:'Автомат',mag:30,damage:15,rate:115,range:540},
  {name:'Тяжёлый',mag:8,damage:38,rate:520,range:650}
 ];
-let bots=[],loot=[],bullets=[],effects=[],buildings=[],keys={},joy={x:0,y:0},firing=false;
+let bots=[],loot=[],bullets=[],botOrbs=[],effects=[],buildings=[],keys={},joy={x:0,y:0},firing=false;
 let lastShot=0,lastTime=0,eventTime=0,eventName='Тихая зона',eventMsg='Исследуй карту';
 let exitPoint={x:1950,y:1400},gameOver=false,won=false,inventoryOpen=false;
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -120,15 +121,32 @@ function update(dt){
    if(d<300&&b.cool<=0){
     b.cool=1.5;
     let hit=Math.random()<.38;
-    if(hit){
-     let damage=8;
-     if(player.armor>1)damage*=.65;
-     player.hp=Math.max(0,player.hp-damage);
-     if(player.hp<=0){gameOver=true;message('ТЫ ПОТЕРПЕЛ ПОРАЖЕНИЕ');}
-    }
+    let a=Math.atan2(player.y-b.y,player.x-b.x);
+    botOrbs.push({
+     x:b.x,y:b.y,
+     vx:Math.cos(a)*250,
+     vy:Math.sin(a)*250,
+     life:2.5
+    });
    }
   }else{b.wander-=dt;if(b.wander<=0){b.wander=3;b.wx=rand(-1,1);b.wy=rand(-1,1)}b.x+= (b.wx||0)*b.speed*.3*dt;b.y+=(b.wy||0)*b.speed*.3*dt}
  }
+ for(let q of botOrbs){
+  q.x+=q.vx*dt;
+  q.y+=q.vy*dt;
+  q.life-=dt;
+  if(Math.hypot(q.x-player.x,q.y-player.y)<23){
+   let damage=6;
+   if(player.armor>1)damage*=.65;
+   player.hp=Math.max(0,player.hp-damage);
+   q.life=0;
+   if(player.hp<=0){
+    gameOver=true;
+    message('ИГРА ОКОНЧЕНА');
+   }
+  }
+ }
+ botOrbs=botOrbs.filter(q=>q.life>0);
  for(let q of bullets){
   q.x+=q.vx*dt;q.y+=q.vy*dt;q.life-=dt;
   for(let b of bots)if(b.hp>0&&Math.hypot(q.x-b.x,q.y-b.y)<19){b.hp-=q.damage;q.life=0;if(b.hp<=0){player.kills++;player.cash+=120;spawnLoot(b.x,b.y,Math.random()<.25?'rare':'box')}break}
@@ -136,13 +154,49 @@ function update(dt){
  bullets=bullets.filter(q=>q.life>0);
  for(let e of effects)e.life-=dt;effects=effects.filter(e=>e.life>0);
  if(firing)shoot();
- for(let l of loot)if(!l.used&&dist(player,l)<35){
-  l.used=true;
-  if(l.type==='rare'){player.armor=Math.min(6,player.armor+1);player.cash+=500;player.med++;message('РЕДКИЙ ЛУТ! Броня улучшена!')}
-  else if(l.type==='air'){player.cash+=900;player.ammo+=weapons[player.weapon].mag;player.med++;player.armor=Math.min(6,player.armor+1);message('АИРДРОП СОБРАН!')}
-  else{let r=Math.random();if(r<.35){player.cash+=rand(80,220)|0;message('Найдены деньги')}else if(r<.65){player.ammo+=weapons[player.weapon].mag;message('Найдены патроны')}else{player.med++;message('Найдена аптечка')}}
- }
  if(dist(player,exitPoint)<65){won=true;player.cash+=1000;message('ЭВАКУАЦИЯ УСПЕШНА! +1000');}
+ updateHud();
+}
+function pickupLoot(){
+ let target=null;
+ let best=75;
+ for(let l of loot){
+  if(l.used)continue;
+  let d=dist(player,l);
+  if(d<best){
+   best=d;
+   target=l;
+  }
+ }
+ if(!target){
+  message('Подойди ближе к луту');
+  return;
+ }
+ target.used=true;
+ if(target.type==='rare'){
+  player.armor=Math.min(6,player.armor+1);
+  player.cash+=500;
+  player.med++;
+  message('РЕДКИЙ ЛУТ! Броня улучшена!');
+ }else if(target.type==='air'){
+  player.cash+=900;
+  player.ammo+=weapons[player.weapon].mag;
+  player.med++;
+  player.armor=Math.min(6,player.armor+1);
+  message('АИРДРОП СОБРАН!');
+ }else{
+  let r=Math.random();
+  if(r<.35){
+   player.cash+=rand(80,220)|0;
+   message('Найдены деньги');
+  }else if(r<.65){
+   player.ammo+=weapons[player.weapon].mag;
+   message('Найдены патроны');
+  }else{
+   player.med++;
+   message('Найдена аптечка');
+  }
+ }
  updateHud();
 }
 function shoot(){
@@ -180,7 +234,22 @@ function draw(){
  for(let l of loot)if(!l.used){ctx.fillStyle=l.type==='air'?'#e3c64d':l.type==='rare'?'#a855f7':'#c58a43';ctx.fillRect(l.x-10,l.y-10,20,20);ctx.strokeStyle='#fff';ctx.strokeRect(l.x-10,l.y-10,20,20)}
  ctx.fillStyle='#31d17c';ctx.beginPath();ctx.arc(exitPoint.x,exitPoint.y,24,0,7);ctx.fill();ctx.fillStyle='#10251a';ctx.fillText('ВЫХОД',exitPoint.x-20,exitPoint.y+4);
  for(let b of bots)if(b.hp>0){ctx.fillStyle='#d34c4c';ctx.beginPath();ctx.arc(b.x,b.y,16,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.fillRect(b.x-16,b.y-25,32,4);ctx.fillStyle='#72df73';ctx.fillRect(b.x-16,b.y-25,32*b.hp/b.max,4)}
- for(let q of bullets){ctx.fillStyle='#ffe18a';ctx.beginPath();ctx.arc(q.x,q.y,4,0,7);ctx.fill()}
+ for(let q of bullets){
+  ctx.fillStyle='#ffe18a';
+  ctx.beginPath();
+  ctx.arc(q.x,q.y,4,0,7);
+  ctx.fill();
+ }
+ for(let q of botOrbs){
+  ctx.save();
+  ctx.shadowBlur=22;
+  ctx.shadowColor='#35eaff';
+  ctx.fillStyle='#35eaff';
+  ctx.beginPath();
+  ctx.arc(q.x,q.y,9,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+ }
  ctx.fillStyle=player.armor>=5?'#f0d36a':player.armor>=3?'#b5b9c2':'#53a8e8';
  ctx.beginPath();ctx.arc(player.x,player.y,18,0,7);ctx.fill();
  ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(player.x,player.y);ctx.lineTo(player.x+Math.cos(player.angle)*29,player.y+Math.sin(player.angle)*29);ctx.stroke();
@@ -201,6 +270,7 @@ document.getElementById('fire').onpointercancel=()=>firing=false;
 document.getElementById('reload').onclick=reload;
 document.getElementById('switch').onclick=switchWeapon;
 document.getElementById('heal').onclick=heal;
+document.getElementById('lootBtn').onclick=pickupLoot;
 document.getElementById('bag').onclick=()=>{
  inventoryOpen=!inventoryOpen;
  document.getElementById('inventory').style.display=inventoryOpen?'block':'none';
