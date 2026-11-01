@@ -3,16 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>METRO ROYALE 3D</title>
+<title>METRO ROYALE X 5.0</title>
 <style>
     *{box-sizing:border-box;touch-action:none;user-select:none}
     body{margin:0;background:#000;overflow:hidden;height:100vh;color:#fff;font-family:'Courier New',monospace}
-    #hud{position:absolute;top:0;left:0;width:100%;height:40px;background:rgba(10,15,10,0.8);display:flex;justify-content:space-between;align-items:center;padding:0 10px;font-size:14px;z-index:10;border-bottom:1px solid #333}
+    #hud{position:absolute;top:0;left:0;width:100%;height:40px;background:rgba(10,15,10,0.8);display:flex;justify-content:space-around;align-items:center;padding:0 10px;font-size:14px;z-index:10;border-bottom:1px solid #333}
     #event{position:absolute;top:40px;width:100%;height:25px;background:rgba(40,30,20,0.9);color:#ffb347;text-align:center;font-size:12px;line-height:25px;z-index:10}
     canvas{display:block;width:100%;height:100%}
+    
+    /* Джойстик движения */
     #joy-left{position:absolute;bottom:20px;left:20px;width:120px;height:120px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);border-radius:50%;z-index:20}
     #joy-left-stick{position:absolute;top:35px;left:35px;width:50px;height:50px;background:rgba(255,255,255,0.2);border-radius:50%;pointer-events:none}
-    #btn-fire{position:absolute;bottom:40px;right:40px;width:80px;height:80px;background:rgba(200,50,50,0.6);border:2px solid #f55;border-radius:50%;color:#fff;font-weight:bold;z-index:20;display:flex;align-items:center;justify-content:center}
+    
+    /* Кнопки */
+    #btn-fire{position:absolute;bottom:80px;right:40px;width:70px;height:70px;background:rgba(200,50,50,0.6);border:2px solid #f55;border-radius:50%;color:#fff;font-weight:bold;z-index:20;display:flex;align-items:center;justify-content:center}
+    #btn-sprint{position:absolute;bottom:20px;right:40px;width:50px;height:50px;background:rgba(50,100,200,0.6);border:2px solid #58f;border-radius:50%;color:#fff;font-size:12px;z-index:20;display:flex;align-items:center;justify-content:center}
+    #btn-loot{position:absolute;bottom:20px;right:110px;width:50px;height:50px;background:rgba(200,180,50,0.6);border:2px solid #ff5;border-radius:50%;color:#fff;font-size:12px;z-index:20;display:flex;align-items:center;justify-content:center}
+    
     #crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;background:red;border-radius:50%;z-index:5}
 </style>
 </head>
@@ -23,6 +30,9 @@
 <div id="crosshair"></div>
 <div id="joy-left"><div id="joy-left-stick"></div></div>
 <button id="btn-fire">ОГОНЬ</button>
+<button id="btn-sprint">БЕГ</button>
+<button id="btn-loot">ЛУТ</button>
+
 <script>
 const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
 let W,H;
@@ -50,25 +60,16 @@ const map=[
 ];
 
 let player={x:2.5,y:2.5,dir:0,hp:100,ammo:30,cash:0,speed:2.5};
-let keys={w:false,s:false};
+let keys={w:false,s:false,a:false,d:false};
 let touchStartX=0;
 let weaponAnim=0;
+let isSprint=false;
+let bullets=[];
+let loot=[];
+for(let i=0;i<5;i++)loot.push({x:2+Math.random()*12,y:2+Math.random()*12,color:"#ffd700"});
 
+// Джойстик
 const joyLeft=document.getElementById("joy-left"),stick=document.getElementById("joy-left-stick");
-let sprint=false;
-let moveX=0;
-const sprintBtn=document.createElement("button");
-sprintBtn.id="sprint";
-sprintBtn.textContent="СПРИНТ";
-sprintBtn.style.cssText="position:absolute;bottom:155px;left:45px;width:100px;height:48px;background:#326b32;border:2px solid #8f8;color:white;border-radius:12px;z-index:25;font-weight:bold";
-document.body.appendChild(sprintBtn);
-sprintBtn.onpointerdown=e=>{e.preventDefault();sprint=true;};
-sprintBtn.onpointerup=()=>sprint=false;
-sprintBtn.onpointercancel=()=>sprint=false;
-const aim=document.createElement("div");
-aim.style.cssText="position:absolute;right:35px;bottom:140px;color:white;font-size:12px;z-index:20";
-aim.textContent="ПОВОРОТ: ПРАВАЯ ЧАСТЬ ЭКРАНА";
-document.body.appendChild(aim);
 let joyActive=false;
 joyLeft.addEventListener("pointerdown",(e)=>{e.preventDefault();joyActive=true;updateJoy(e);});
 document.addEventListener("pointermove",(e)=>{
@@ -80,28 +81,40 @@ document.addEventListener("pointermove",(e)=>{
 });
 document.addEventListener("pointerup",()=>{joyActive=false;stick.style.transform="translate(0,0)";});
 document.addEventListener("pointerdown",(e)=>{if(e.clientX>window.innerWidth/2)touchStartX=e.clientX;});
+
 function updateJoy(e){
     const rect=joyLeft.getBoundingClientRect(),cx=rect.left+60,cy=rect.top+60;
-
-let dx=e.clientX-cx,dy=e.clientY-cy;
+    let dx=e.clientX-cx,dy=e.clientY-cy;
     const max=35,dist=Math.hypot(dx,dy);
     if(dist>max){dx=(dx/dist)*max;dy=(dy/dist)*max;}
-    stick.style.transform=`translate(${dx}px,${dy}px)`;
+    stick.style.transform=translate(${dx}px,${dy}px);
+    
+    // Движение вперед/назад
     keys.w=dy<-10; keys.s=dy>10;
-    moveX=dx/35;
+    // Стрэйф влево/вправо
+    keys.a=dx<-10; keys.d=dx>10;
 }
+
+// Кнопки
 document.getElementById("btn-fire").addEventListener("pointerdown",(e)=>{
     e.preventDefault();
     if(player.ammo>0){
         player.ammo--; document.getElementById("ammo").textContent=player.ammo; weaponAnim=1;
+        bullets.push({x:player.x,y:player.y,dx:Math.cos(player.dir),dy:Math.sin(player.dir),life:1});
     }
 });
+document.getElementById("btn-sprint").addEventListener("pointerdown",(e)=>{e.preventDefault();isSprint=true;});
+document.getElementById("btn-sprint").addEventListener("pointerup",(e)=>{e.preventDefault();isSprint=false;});
+document.getElementById("btn-loot").addEventListener("pointerdown",(e)=>{
+    e.preventDefault();
+    let item=loot.findIndex(l=>Math.hypot(player.x-l.x,player.y-l.y)<1);
+    if(item!==-1){loot.splice(item,1);player.cash+=100;document.getElementById("cash").textContent=player.cash;document.getElementById("event").textContent="НАЙДЕН ЛУТ!";}
+});
 
+// Рендер 3D
 function castRays(){
     ctx.fillStyle="#111";ctx.fillRect(0,0,W,H);
-    const fov=Math.PI/3;
-    const numRays=Math.floor(W/2); 
-    const maxDepth=15;
+    const fov=Math.PI/3,numRays=Math.floor(W/2),maxDepth=15;
 
     for(let i=0;i<numRays;i++){
         let rayAngle=player.dir-fov/2+(i/numRays)*fov;
@@ -112,7 +125,7 @@ function castRays(){
             dist+=0.05;
             let testX=player.x+rayX*dist,testY=player.y+rayY*dist;
             let mapX=Math.floor(testX),mapY=Math.floor(testY);
-            if(mapX<0 || mapX>=MAP_SIZE || mapY<0 || mapY>=MAP_SIZE){hit=true;dist=maxDepth;}
+            if(mapX<0  mapX>=MAP_SIZE  mapY<0 || mapY>=MAP_SIZE){hit=true;dist=maxDepth;}
             else if(map[mapY][mapX]>0){hit=true;}
         }
         
@@ -123,8 +136,7 @@ function castRays(){
         let color=map[mapY] && map[mapY][mapX]===1 ? (mapY%2===0?"#4a4f45":"#3a3f35") : "#2a2e26";
         
         let shade=Math.max(0.1,1-correctedDist/maxDepth);
-        ctx.fillStyle=color;
-        ctx.globalAlpha=shade;
+        ctx.fillStyle=color; ctx.globalAlpha=shade;
         ctx.fillRect(i*2,(H-wallHeight)/2,2,wallHeight);
         ctx.globalAlpha=1;
     }
@@ -134,52 +146,73 @@ function drawWeapon(){
     ctx.save();
     let sway = Math.sin(Date.now()/200)*5;
     ctx.translate(W-150, H-50+sway);
-    
-    if(weaponAnim>0){
-        ctx.rotate(0.5);
-        weaponAnim-=0.05;
-    }
-    
-    // Нож-бабочка
-    ctx.fillStyle="#aaa";
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(100,-20); ctx.lineTo(120,10); ctx.lineTo(20,30); ctx.fill();
-    ctx.fillStyle="#222";
-    ctx.fillRect(20,10,60,10);
-    ctx.fillStyle="#555";
-    ctx.beginPath(); ctx.arc(30,20,8,0,Math.PI*2); ctx.fill(); 
-    
+    if(weaponAnim>0){ ctx.rotate(0.5); weaponAnim-=0.05; }
+    // Нож
+    ctx.fillStyle="#aaa"; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(100,-20); ctx.lineTo(120,10); ctx.lineTo(20,30); ctx.fill();
+    ctx.fillStyle="#222"; ctx.fillRect(20,10,60,10);
+    ctx.fillStyle="#555"; ctx.beginPath(); ctx.arc(30,20,8,0,Math.PI*2); ctx.fill(); 
     ctx.restore();
 }
 
 let lastTime=performance.now();
 function loop(time){
     const dt=Math.min((time-lastTime)/1000,0.05);lastTime=time;
-    
+
+let speed = isSprint ? player.speed*1.6 : player.speed;
     let mx=0,my=0;
-    if(keys.w)my+=1; if(keys.s)my-=1;
+    if(keys.w)my+=1; if(keys.s)my-=1; if(keys.a)mx-=1; if(keys.d)mx+=1;
+    
     if(mx!==0||my!==0){
-        let sp=sprint?1.8:1; let nx=player.x+(Math.cos(player.dir)*my-Math.sin(player.dir)*moveX)*player.speed*sp*dt;
-        let ny=player.y+(Math.sin(player.dir)*my+Math.cos(player.dir)*moveX)*player.speed*sp*dt;
+        // Движение вперед/назад
+        let nx=player.x+Math.cos(player.dir)*my*speed*dt;
+        let ny=player.y+Math.sin(player.dir)*my*speed*dt;
         if(map[Math.floor(ny)][Math.floor(player.x)]===0) player.y=ny;
         if(map[Math.floor(player.y)][Math.floor(nx)]===0) player.x=nx;
+        
+        // Стрэйф влево/вправо
+        let sx=player.x+Math.cos(player.dir+Math.PI/2)*mx*speed*dt;
+        let sy=player.y+Math.sin(player.dir+Math.PI/2)*mx*speed*dt;
+        if(map[Math.floor(player.y)][Math.floor(sx)]===0) player.x=sx;
+        if(map[Math.floor(sy)][Math.floor(player.x)]===0) player.y=sy;
     }
+    
+    // Пули
+    bullets.forEach((b,i)=>{
+        b.x+=b.dx*10*dt; b.y+=b.dy*10*dt; b.life-=dt;
+        if(b.life<=0) bullets.splice(i,1);
+    });
     
     castRays();
     drawWeapon();
     
-    ctx.fillStyle="rgba(0,0,0,0.5)";ctx.fillRect(10,50,100,100);
+    // Пули на экране (3D-точки)
+    bullets.forEach(b=>{
+        let dx=b.x-player.x,dy=b.y-player.y;
+        let angle=Math.atan2(dy,dx);
+        let dist=Math.hypot(dx,dy);
+        let angleDiff=angle-player.dir;
+        if(Math.abs(angleDiff)<Math.PI/3 && dist<10){
+            let screenX=(angleDiff/(Math.PI/3)+0.5)*W;
+            let screenY=H/2;
+            let size=Math.max(2,50/dist);
+            ctx.fillStyle="#ff0"; ctx.fillRect(screenX,screenY,size,size);
+        }
+    });
+    
+    // Мини-карта
+    ctx.fillStyle="rgba(0,0,0,0.6)";ctx.fillRect(10,50,100,100);
     ctx.fillStyle="red";ctx.fillRect(10+player.x*6,50+player.y*6,4,4);
     for(let y=0;y<MAP_SIZE;y++){
         for(let x=0;x<MAP_SIZE;x++){
-            if(map[y][x]===1){
-                ctx.fillStyle="#333";ctx.fillRect(10+x*6,50+y*6,6,6);
-            }
+            if(map[y][x]===1){ ctx.fillStyle="#444";ctx.fillRect(10+x*6,50+y*6,6,6); }
         }
     }
+    // Лут на мини-карте
+    loot.forEach(l=>{ ctx.fillStyle="#ffd700";ctx.fillRect(10+l.x*6,50+l.y*6,3,3); });
     
     requestAnimationFrame(loop);
 }
-document.getElementById("event").textContent="ВЫЖИВИ И ИССЛЕДУЙ";
+document.getElementById("event").textContent="WASD / Джойстик. Огонь, Бег, Лут.";
 requestAnimationFrame(loop);
 </script>
 </body>
